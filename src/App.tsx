@@ -9,6 +9,7 @@ import { Journal } from './components/ui/Journal';
 import { AchievementToast } from './components/ui/AchievementToast';
 import { ProfileSelector } from './components/ui/ProfileSelector';
 import SCENES from './data/scenes';
+import { getActiveChallenges } from './data/challenges';
 import type { Scene, SceneAction } from './data/scenes';
 import { createItem } from './data/items';
 
@@ -18,11 +19,23 @@ function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const initRef = useRef(false);
 
+  const speak = (text: string) => {
+    if (store.narrationEnabled && 'speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = store.narrationSpeed;
+      speechSynthesis.speak(utterance);
+    }
+  };
+
   // Initialize game (once, guarded against StrictMode double-invoke)
   useEffect(() => {
     const s = useGameStore.getState();
     if (s.hasStarted || initRef.current) return;
     initRef.current = true;
+    
+    // Set active challenges
+    const activeChallenges = getActiveChallenges();
+    s.setActiveChallenges(activeChallenges.map(c => c.id));
     
     useGameStore.setState({ hasStarted: true });
     s.addLog('═══════════════════════════════════', 'system');
@@ -131,6 +144,7 @@ function App() {
 
     await new Promise((r) => setTimeout(r, 250 * (1 / store.narrationSpeed)));
     s.addLog(action.text, 'action');
+    speak(action.text);
 
     // Apply per-scene lantern drain (atmosphere cost of being in dangerous place)
     const currentSceneData = currentScene;
@@ -246,7 +260,9 @@ function App() {
       if (nextScene) {
         s.addLog(`── ${nextScene.title.toUpperCase()} ──`, 'system');
         s.addLog(nextScene.description, 'narrative');
+        speak(nextScene.description);
         s.addLog(nextScene.atmosphere, 'narrative');
+        speak(nextScene.atmosphere);
       }
       if (nextScene?.id === 'return-to-archive' || nextScene?.id === 'veil-lost') {
         s.addLog(
@@ -254,6 +270,17 @@ function App() {
           'reward'
         );
         s.endExpedition(nextScene?.id === 'return-to-archive');
+        // Add run history
+        const run = {
+          success: nextScene?.id === 'return-to-archive',
+          scenesVisited: store.discoveredScenes.size,
+          relicsFound: store.inventory.length,
+          xpGained: store.xp,
+          lorePointsEarned: 10,
+          timeSpent: Date.now() - (store as any).startTime || 0,
+          challenges: store.activeChallenges,
+        };
+        s.addRunHistory(run);
         if (nextScene?.id === 'return-to-archive') {
           s.addLorePoints(10); // Award lore points for successful expedition
           // Add to expedition log
@@ -409,6 +436,9 @@ function App() {
           />
         )}
       </AnimatePresence>
+      {/* Run Summary Modal */}
+      <AnimatePresence>
+        {gameOver && (
           <motion.div
             className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
             initial={{ opacity: 0 }}

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { createItem } from '../data/items';
 
 let logIdCounter = 0;
 const nextLogId = () => `log-${Date.now()}-${++logIdCounter}`;
@@ -27,63 +28,20 @@ export interface ExpeditionLogEntry {
   sceneId?: string;
 }
 
-interface GameStateData {
-  vitality: number;
-  maxVitality: number;
-  focus: number;
-  maxFocus: number;
-  lanternCharge: number;
-  maxLanternCharge: number;
-  xp: number;
-  level: number;
-  xpToNextLevel: number;
-  currentLocation: string;
-  currentScene: string;
-  isInExpedition: boolean;
-  hasStarted: boolean;
-  gameOver: boolean;
-  gameWon: boolean;
-  inventory: InventoryItem[];
-  maxInventorySize: number;
-  discoveredScenes: Set<string>;
-  visitedLocations: Set<string>;
-  gameLog: GameLog[];
-  usedActions: Set<string>;
-  // New features
-  lorePoints: number;
-  achievements: Achievement[];
-  expeditionLog: ExpeditionLogEntry[];
-  currentProfile: string;
-  narrationSpeed: number;
-  keyBindings: { [key: string]: number };
-  difficulty: 'casual' | 'normal' | 'hardcore';
+export interface InventoryItem {
+  id: string;
+  name: string;
+  rarity: 'common' | 'uncommon' | 'rare' | 'mythic';
+  description: string;
+  effect: string;
+  upgrade?: {
+    cost: number;
+    newName: string;
+    newEffect: string;
+  };
 }
 
-interface GameStateActions {
-  addLog: (text: string, type: GameLog['type']) => void;
-  takeDamage: (amount: number) => void;
-  recoverVitality: (amount: number) => void;
-  addXP: (amount: number) => void;
-  addItem: (item: InventoryItem) => void;
-  removeItem: (id: string) => void;
-  setLocation: (location: string) => void;
-  setScene: (scene: string) => void;
-  // New features
-  addLorePoints: (amount: number) => void;
-  unlockAchievement: (achievementId: string) => void;
-  addExpeditionLogEntry: (entry: ExpeditionLogEntry) => void;
-  setProfile: (profile: string) => void;
-  setNarrationSpeed: (speed: number) => void;
-  setKeyBinding: (key: string, actionIndex: number) => void;
-  setDifficulty: (difficulty: 'casual' | 'normal' | 'hardcore') => void;
-  resetExpedition: () => void; spendLantern: (amount: number) => void;
-  recoverLantern: (amount: number) => void;
-  discoverScene: (sceneId: string) => void;
-  markActionUsed: (sceneId: string, actionIndex: number) => void;
-  clearUsedActions: () => void;
-  spendFocus: (amount: number) => void;
-  recoverFocus: (amount: number) => void;
-  consumeItemAchievements: Achievement[] = [
+const initialAchievements: Achievement[] = [
   {
     id: 'first-expedition',
     title: 'First Steps',
@@ -116,6 +74,76 @@ interface GameStateActions {
   },
 ];
 
+interface GameStateData {
+  vitality: number;
+  maxVitality: number;
+  focus: number;
+  maxFocus: number;
+  lanternCharge: number;
+  maxLanternCharge: number;
+  xp: number;
+  level: number;
+  xpToNextLevel: number;
+  currentLocation: string;
+  currentScene: string;
+  isInExpedition: boolean;
+  hasStarted: boolean;
+  gameOver: boolean;
+  gameWon: boolean;
+  inventory: InventoryItem[];
+  maxInventorySize: number;
+  discoveredScenes: Set<string>;
+  visitedLocations: Set<string>;
+  gameLog: GameLog[];
+  usedActions: Set<string>;
+  // New features
+  lorePoints: number;
+  achievements: Achievement[];
+  expeditionLog: ExpeditionLogEntry[];
+  currentProfile: string;
+  narrationSpeed: number;
+  narrationEnabled: boolean;
+  theme: 'default' | 'light' | 'high-contrast';
+  language: 'en' | 'es' | 'fr';
+  keyBindings: { [key: string]: number };
+  difficulty: 'casual' | 'normal' | 'hardcore';
+  activeChallenges: string[];
+  runHistory: any[];
+}
+
+interface GameStateActions {
+  addLog: (text: string, type: GameLog['type']) => void;
+  takeDamage: (amount: number) => void;
+  recoverVitality: (amount: number) => void;
+  addXP: (amount: number) => void;
+  addItem: (item: InventoryItem) => void;
+  removeItem: (id: string) => void;
+  setLocation: (location: string) => void;
+  setScene: (scene: string) => void;
+  // New features
+  addLorePoints: (amount: number) => void;
+  unlockAchievement: (achievementId: string) => void;
+  addExpeditionLogEntry: (entry: ExpeditionLogEntry) => void;
+  setProfile: (profile: string) => void;
+  setNarrationSpeed: (speed: number) => void;
+  setNarrationEnabled: (enabled: boolean) => void;
+  setTheme: (theme: 'default' | 'light' | 'high-contrast') => void;
+  setLanguage: (language: 'en' | 'es' | 'fr') => void;
+  setKeyBinding: (key: string, actionIndex: number) => void;
+  setDifficulty: (difficulty: 'casual' | 'normal' | 'hardcore') => void;
+  resetExpedition: () => void;
+  spendLantern: (amount: number) => void;
+  recoverLantern: (amount: number) => void;
+  discoverScene: (sceneId: string) => void;
+  markActionUsed: (sceneId: string, actionIndex: number) => void;
+  clearUsedActions: () => void;
+  spendFocus: (amount: number) => void;
+  recoverFocus: (amount: number) => void;
+  upgradeItem: (itemId: string) => void;
+  setActiveChallenges: (challenges: string[]) => void;
+  addRunHistory: (run: any) => void;
+}
+
 const initialState: GameStateData = {
   vitality: 50,
   maxVitality: 50,
@@ -144,13 +172,13 @@ const initialState: GameStateData = {
   expeditionLog: [],
   currentProfile: 'default',
   narrationSpeed: 1.0,
+  narrationEnabled: false,
+  theme: 'default',
+  language: 'en',
   keyBindings: { '1': 0, '2': 1, '3': 2, '4': 3 },
-  difficulty: 'normal'
-  maxInventorySize: 6,
-  discoveredScenes: new Set<string>(['ashfall-archive']),
-  visitedLocations: new Set<string>(['archive']),
-  gameLog: [] as GameLog[],
-  usedActions: new Set<string>(),
+  difficulty: 'normal',
+  activeChallenges: [],
+  runHistory: []
 };
 
 export const useGameStore = create<GameState>()(
@@ -173,9 +201,13 @@ export const useGameStore = create<GameState>()(
       },
 
       takeDamage: (amount: number) => {
-        set((state) => ({
-          vitality: Math.max(0, state.vitality - amount),
-        }));
+        set((state) => {
+          let multiplier = 1;
+          if (state.activeChallenges.includes('fragile')) multiplier = 1.5;
+          return {
+            vitality: Math.max(0, state.vitality - Math.floor(amount * multiplier)),
+          };
+        });
       },
 
       recoverVitality: (amount: number) => {
@@ -278,6 +310,33 @@ export const useGameStore = create<GameState>()(
       recoverFocus: (amount: number) => {
         set((state) => ({ focus: Math.min(state.maxFocus, state.focus + amount) }));
       },
+
+      upgradeItem: (itemId: string) => {
+        set((state) => {
+          const item = state.inventory.find(i => i.id === itemId);
+          if (!item || !item.upgrade || state.lorePoints < item.upgrade.cost) {
+            return state;
+          }
+          return {
+            inventory: state.inventory.map(i =>
+              i.id === itemId
+                ? { ...i, name: item.upgrade!.newName, effect: item.upgrade!.newEffect, upgrade: undefined }
+                : i
+            ),
+            lorePoints: state.lorePoints - item.upgrade.cost,
+          };
+        });
+      },
+
+      setActiveChallenges: (challenges: string[]) => {
+        set({ activeChallenges: challenges });
+      },
+
+      addRunHistory: (run: any) => {
+        set((state) => ({
+          runHistory: [...state.runHistory, run].slice(-10), // Keep last 10
+        }));
+      },
       consumeItem: (keyPrefix: string) => {
         set((state) => ({
           inventory: state.inventory.filter((i) => !i.id.startsWith(keyPrefix)),
@@ -285,9 +344,13 @@ export const useGameStore = create<GameState>()(
       },
 
       startExpedition: () => {
-        
-
-      // New features
+        set({
+          isInExpedition: true,
+          currentLocation: 'red-waste',
+          currentScene: 'threshold-gate',
+          usedActions: new Set<string>(),
+        });
+      },
       addLorePoints: (amount: number) => {
         set((state) => ({ lorePoints: state.lorePoints + amount }));
       },
@@ -304,13 +367,6 @@ export const useGameStore = create<GameState>()(
 
       addExpeditionLogEntry: (entry: ExpeditionLogEntry) => {
         set((state) => ({
-        // New persistent data
-        lorePoints: state.lorePoints,
-        achievements: state.achievements,
-        expeditionLog: state.expeditionLog,
-        narrationSpeed: state.narrationSpeed,
-        keyBindings: state.keyBindings,
-        difficulty: state.difficulty,
           expeditionLog: [...state.expeditionLog, entry].slice(-100), // Keep last 100 entries
         }));
       },
@@ -326,13 +382,6 @@ export const useGameStore = create<GameState>()(
       setKeyBinding: (key: string, actionIndex: number) => {
         set((state) => ({
           keyBindings: { ...state.keyBindings, [key]: actionIndex },
-          // Initialize new features if missing
-          if (state.achievements === undefined) state.achievements = initialAchievements;
-          if (state.expeditionLog === undefined) state.expeditionLog = [];
-          if (state.lorePoints === undefined) state.lorePoints = 0;
-          if (state.narrationSpeed === undefined) state.narrationSpeed = 1.0;
-          if (state.keyBindings === undefined) state.keyBindings = { '1': 0, '2': 1, '3': 2, '4': 3 };
-          if (state.difficulty === undefined) state.difficulty = 'normal';
         }));
       },
 
@@ -356,12 +405,6 @@ export const useGameStore = create<GameState>()(
           lanternCharge: state.difficulty === 'casual' ? 120 : state.difficulty === 'hardcore' ? 80 : 100,
           maxLanternCharge: state.difficulty === 'casual' ? 120 : state.difficulty === 'hardcore' ? 80 : 100,
         }));
-      },set({
-          isInExpedition: true,
-          currentLocation: 'red-waste',
-          currentScene: 'threshold-gate',
-          usedActions: new Set<string>(),
-        });
       },
 
       endExpedition: (won: boolean) => {
@@ -377,9 +420,13 @@ export const useGameStore = create<GameState>()(
       },
 
       spendLantern: (amount: number) => {
-        set((state) => ({
-          lanternCharge: Math.max(0, state.lanternCharge - amount),
-        }));
+        set((state) => {
+          let multiplier = 1;
+          if (state.activeChallenges.includes('double-lantern')) multiplier = 2;
+          return {
+            lanternCharge: Math.max(0, state.lanternCharge - amount * multiplier),
+          };
+        });
       },
 
       recoverLantern: (amount: number) => {
@@ -468,8 +515,11 @@ export const useGameStore = create<GameState>()(
         achievements: state.achievements,
         expeditionLog: state.expeditionLog,
         narrationSpeed: state.narrationSpeed,
+        narrationEnabled: state.narrationEnabled,
         keyBindings: state.keyBindings,
         difficulty: state.difficulty,
+        activeChallenges: state.activeChallenges,
+        runHistory: state.runHistory,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
@@ -490,8 +540,11 @@ export const useGameStore = create<GameState>()(
           if (state.expeditionLog === undefined) state.expeditionLog = [];
           if (state.lorePoints === undefined) state.lorePoints = 0;
           if (state.narrationSpeed === undefined) state.narrationSpeed = 1.0;
+          if (state.narrationEnabled === undefined) state.narrationEnabled = false;
           if (state.keyBindings === undefined) state.keyBindings = { '1': 0, '2': 1, '3': 2, '4': 3 };
           if (state.difficulty === undefined) state.difficulty = 'normal';
+          if (state.activeChallenges === undefined) state.activeChallenges = [];
+          if (state.runHistory === undefined) state.runHistory = [];
           state.isInExpedition = false;
           state.currentScene = 'ashfall-archive';
           state.currentLocation = 'archive';

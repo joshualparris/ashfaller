@@ -37,6 +37,11 @@ export const ITEM_POOL: { [key: string]: Omit<InventoryItem, 'id'> } = {
     description:
       'An ancient navigation tool, still warm and faintly humming. Points not to magnetic north, but to the nearest gate.',
     effect: 'Reduces lantern burn rate by 20% while in the Waste.',
+    upgrade: {
+      cost: 50,
+      newName: 'Brass Locator +1',
+      newEffect: 'Reduces lantern burn rate by 30% while in the Waste.',
+    },
   },
 
   'veil-salt': {
@@ -45,6 +50,11 @@ export const ITEM_POOL: { [key: string]: Omit<InventoryItem, 'id'> } = {
     description:
       'A crystalline substance that shimmers between visible and invisible. Sprinkle it to reveal hidden paths or conceal yourself from the Veil\'s attention.',
     effect: 'Raises the danger threshold, letting you survive longer.',
+    upgrade: {
+      cost: 75,
+      newName: 'Purified Veil Salt',
+      newEffect: 'Significantly raises the danger threshold and reduces incoming damage by 2.',
+    },
   },
 
   'obelisk-fragment': {
