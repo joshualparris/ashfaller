@@ -5,6 +5,7 @@ export const ITEM_POOL: { [key: string]: Omit<InventoryItem, 'id'> } = {
     name: 'Dustglass Shard',
     rarity: 'uncommon',
     description: 'A fragment of fused glass, warm and pulsing with faint light. Reflects the Red Waste like a mirror.',
+    effect: 'No special effect — a collectible relic.',
   },
 
   'whisper-thread': {
@@ -12,12 +13,14 @@ export const ITEM_POOL: { [key: string]: Omit<InventoryItem, 'id'> } = {
     rarity: 'uncommon',
     description:
       'A strand of something between silk and shadow. When held to your ear, you hear ancient voices speaking in tongues you almost understand.',
+    effect: 'No special effect yet — a mysterious relic.',
   },
 
   'gate-coin': {
     name: 'Old Gate Coin',
     rarity: 'common',
     description: 'A token of brass and obsidian, marked with a symbol that resembles the Threshold Gate itself.',
+    effect: 'No special effect yet — a token of the gate.',
   },
 
   'ashwater-flask': {
@@ -25,6 +28,7 @@ export const ITEM_POOL: { [key: string]: Omit<InventoryItem, 'id'> } = {
     rarity: 'uncommon',
     description:
       'A ceramic vessel filled with water touched by red dust and starlight. Drinking it grants visions, briefly.',
+    effect: 'Automatically revives you once when your vitality reaches zero.',
   },
 
   'brass-locator': {
@@ -32,6 +36,7 @@ export const ITEM_POOL: { [key: string]: Omit<InventoryItem, 'id'> } = {
     rarity: 'rare',
     description:
       'An ancient navigation tool, still warm and faintly humming. Points not to magnetic north, but to the nearest gate.',
+    effect: 'Reduces lantern burn rate by 20% while in the Waste.',
   },
 
   'veil-salt': {
@@ -39,6 +44,7 @@ export const ITEM_POOL: { [key: string]: Omit<InventoryItem, 'id'> } = {
     rarity: 'rare',
     description:
       'A crystalline substance that shimmers between visible and invisible. Sprinkle it to reveal hidden paths or conceal yourself from the Veil\'s attention.',
+    effect: 'Raises the danger threshold, letting you survive longer.',
   },
 
   'obelisk-fragment': {
@@ -46,6 +52,7 @@ export const ITEM_POOL: { [key: string]: Omit<InventoryItem, 'id'> } = {
     rarity: 'rare',
     description:
       'A piece of the Broken Obelisk, still inscribed with Names of power. Heat radiates from it in waves.',
+    effect: 'Reduces focus costs by 1 for actions that consume focus.',
   },
 
   'name-scroll': {
@@ -53,6 +60,7 @@ export const ITEM_POOL: { [key: string]: Omit<InventoryItem, 'id'> } = {
     rarity: 'mythic',
     description:
       'An ancient text inscribed with the true names of places, powers, and perhaps gods. Reading even one name changes you forever.',
+    effect: 'Increases XP gained by 20% for all future actions.',
   },
 
   'crystal-message': {
@@ -60,6 +68,7 @@ export const ITEM_POOL: { [key: string]: Omit<InventoryItem, 'id'> } = {
     rarity: 'mythic',
     description:
       'A glowing crystalline capsule containing a message from travelers who came through the Veil long ago. Its meaning is still unclear.',
+    effect: 'No special effect yet — a mysterious signal from the Veil.',
   },
 
   'ancient-garb': {
@@ -67,6 +76,7 @@ export const ITEM_POOL: { [key: string]: Omit<InventoryItem, 'id'> } = {
     rarity: 'rare',
     description:
       'Clothing from before the Veil collapsed, woven with fibers that no longer grow in your world. Still holds the scent of other skies.',
+    effect: 'Reduces incoming vitality damage by 1 from dangerous actions.',
   },
 
   'veil-claw': {
@@ -74,6 +84,7 @@ export const ITEM_POOL: { [key: string]: Omit<InventoryItem, 'id'> } = {
     rarity: 'rare',
     description:
       'A crystalline talon, not quite biological. It whispers when the Veil grows thin. Perhaps a weapon, or a warning.',
+    effect: 'No special effect yet — a mysterious relic of the Veil.',
   },
 };
 

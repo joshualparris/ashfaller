@@ -62,6 +62,11 @@ export function InventoryPanel({ items, maxSize }: InventoryPanelProps) {
           <div className="text-xs text-amber-100/80 leading-relaxed">
             {selectedItem.description}
           </div>
+          {selectedItem.effect && (
+            <div className="mt-3 text-xs italic text-amber-200/90">
+              <span className="font-semibold">Effect:</span> {selectedItem.effect}
+            </div>
+          )}
         </motion.div>
       )}
     </div>

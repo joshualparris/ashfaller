@@ -44,11 +44,19 @@ export function ActionButtons({
               className={`btn-action text-left ${
                 used ? 'opacity-40 cursor-not-allowed' : ''
               }`}
+              aria-label={action.label}
+              tabIndex={disabled || used ? -1 : 0}
               onClick={() => onActionSelect(action, index)}
+              onKeyDown={(e) => {
+                if (!used && !disabled && (e.key === 'Enter' || e.key === ' ')) {
+                  e.preventDefault();
+                  onActionSelect(action, index);
+                }
+              }}
               disabled={disabled || used}
               whileHover={!used ? { scale: 1.02 } : {}}
               whileTap={!used ? { scale: 0.98 } : {}}
-              title={used ? 'Already used this action' : costs.join('\n')}
+              title={used ? 'Already used this action' : disabled ? 'Actions are temporarily disabled' : costs.join('\n')}
             >
               <span className="text-amber-500 font-bold mr-1">▸</span>
               {action.label}

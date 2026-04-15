@@ -41,7 +41,6 @@ function App() {
   const hasAncientGarb = store.inventory.some((i) => i.id.startsWith('ancient-garb'));
   const hasVeilSalt = store.inventory.some((i) => i.id.startsWith('veil-salt'));
   const hasObeliskFragment = store.inventory.some((i) => i.id.startsWith('obelisk-fragment'));
-  const hasVeilClaw = store.inventory.some((i) => i.id.startsWith('veil-claw'));
 
   const applyLanternCost = (raw: number) => {
     // Locator reduces lantern burn by 20%
@@ -94,9 +93,15 @@ function App() {
     }
 
     if (action.xp) {
+      const prevLevel = useGameStore.getState().level;
       const xp = applyXpGain(action.xp);
       s.addXP(xp);
       s.addLog(`+${xp} XP${hasNameScroll && xp !== action.xp ? ' (Scroll of Names)' : ''}`, 'reward');
+      const newLevel = useGameStore.getState().level;
+      if (newLevel > prevLevel) {
+        s.addLog(`LEVEL UP! You are now level ${newLevel}.`, 'reward');
+        s.addLog('Your vitality surges as your maximum grows.', 'reward');
+      }
     }
 
     if (action.vitality && action.vitality < 0) {
@@ -169,7 +174,8 @@ function App() {
       return;
     }
 
-    if (action.danger && action.dangerThreshold && final.vitality <= getDangerThreshold(action.dangerThreshold, final.focus)) {
+    const dangerThreshold = getDangerThreshold(action.dangerThreshold, final.focus);
+    if (action.danger && dangerThreshold !== undefined && final.vitality <= dangerThreshold) {
       s.addLog('The Veil closes. You are pulled back, wounded.', 'danger');
       s.addLog('EXPEDITION FAILED', 'danger');
       s.endExpedition(false);
@@ -296,7 +302,6 @@ function App() {
                 actions={currentScene.actions}
                 onActionSelect={handleAction}
                 disabled={isProcessing}
-                lanternMultiplier={hasLocator ? 0.8 : 1}
               />
             )}
           </div>
