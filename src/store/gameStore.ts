@@ -58,6 +58,7 @@ interface GameStateActions {
   spendLantern: (amount: number) => void;
   discoverScene: (sceneId: string) => void;
   markActionUsed: (sceneId: string, actionIndex: number) => void;
+  clearUsedActions: () => void;
   spendFocus: (amount: number) => void;
   recoverFocus: (amount: number) => void;
   consumeItem: (keyPrefix: string) => void;
@@ -257,6 +258,10 @@ export const useGameStore = create<GameState>()(
         set((state) => ({
           usedActions: new Set([...state.usedActions, `${sceneId}-${actionIndex}`]),
         }));
+      },
+
+      clearUsedActions: () => {
+        set({ usedActions: new Set<string>() });
       },
     }),
     {

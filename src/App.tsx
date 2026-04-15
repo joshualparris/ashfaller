@@ -302,6 +302,7 @@ function App() {
                 actions={currentScene.actions}
                 onActionSelect={handleAction}
                 disabled={isProcessing}
+                onResetActions={() => useGameStore.getState().clearUsedActions()}
               />
             )}
           </div>

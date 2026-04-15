@@ -6,6 +6,7 @@ interface ActionButtonsProps {
   sceneId: string;
   actions: SceneAction[];
   onActionSelect: (action: SceneAction, index: number) => void;
+  onResetActions?: () => void;
   disabled?: boolean;
 }
 
@@ -13,6 +14,7 @@ export function ActionButtons({
   sceneId,
   actions,
   onActionSelect,
+  onResetActions,
   disabled = false,
 }: ActionButtonsProps) {
   const usedActions = useGameStore((state) => state.usedActions);
@@ -28,6 +30,8 @@ export function ActionButtons({
     if (action.focus && action.focus < 0) costs.push(`−${Math.abs(action.focus)} Focus`);
     return costs;
   };
+
+  const allUsed = actions.every((_, index) => usedActionsSet.has(`${sceneId}-${index}`));
 
   return (
     <div className="glass-panel p-3">
@@ -65,6 +69,15 @@ export function ActionButtons({
             </motion.button>
           );
         })}
+        {allUsed && !disabled && onResetActions && (
+          <button
+            type="button"
+            className="btn-action mt-2 bg-amber-500 text-obsidian-950"
+            onClick={onResetActions}
+          >
+            Reset actions for this scene
+          </button>
+        )}
       </div>
     </div>
   );
