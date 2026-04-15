@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 import type { Achievement, ExpeditionLogEntry } from '../store/gameStore';
-import SCENES from '../data/scenes';
+import SCENES from '../data/scenes.ts';
 
 interface JournalProps {
   discoveredScenes: Set<string>;
