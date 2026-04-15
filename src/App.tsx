@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from './store/gameStore';
 import { GameLog } from './components/GameLog';
 import { StatsPanel } from './components/StatsPanel';
@@ -13,131 +13,166 @@ function App() {
   const store = useGameStore();
   const [currentScene, setCurrentScene] = useState<Scene | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const initRef = useRef(false);
 
-  // Initialize game
+  // Initialize game (once, guarded against StrictMode double-invoke)
   useEffect(() => {
-    if (!store.hasStarted) {
-      store.addLog('═══════════════════════════════════', 'system');
-      store.addLog('Welcome, Ashfaller.', 'narrative');
-      store.addLog('The Veil stirs. The Gate calls.', 'narrative');
-      store.addLog('═══════════════════════════════════', 'system');
-      store.addLog(' ', 'system');
-      useGameStore.setState({ hasStarted: true });
-    }
-  }, [store, store.hasStarted]);
+    const s = useGameStore.getState();
+    if (s.hasStarted || initRef.current) return;
+    initRef.current = true;
+    
+    useGameStore.setState({ hasStarted: true });
+    s.addLog('═══════════════════════════════════', 'system');
+    s.addLog('Welcome, Ashfaller.', 'narrative');
+    s.addLog('The Veil stirs. The Gate calls.', 'narrative');
+    s.addLog('═══════════════════════════════════', 'system');
+  }, []);
 
   // Update current scene
   useEffect(() => {
     const scene = SCENES[store.currentScene];
-    if (scene) {
-      setCurrentScene(scene);
-    }
+    if (scene) setCurrentScene(scene);
   }, [store.currentScene]);
+
+  // Derived item effects
+  const hasLocator = store.inventory.some((i) => i.id.startsWith('brass-locator'));
+  const hasNameScroll = store.inventory.some((i) => i.id.startsWith('name-scroll'));
+  const hasAshwater = store.inventory.some((i) => i.id.startsWith('ashwater-flask'));
+  const hasAncientGarb = store.inventory.some((i) => i.id.startsWith('ancient-garb'));
+  const hasVeilSalt = store.inventory.some((i) => i.id.startsWith('veil-salt'));
+  const hasObeliskFragment = store.inventory.some((i) => i.id.startsWith('obelisk-fragment'));
+  const hasVeilClaw = store.inventory.some((i) => i.id.startsWith('veil-claw'));
+
+  const applyLanternCost = (raw: number) => {
+    // Locator reduces lantern burn by 20%
+    if (hasLocator && raw > 0) return Math.max(1, Math.round(raw * 0.8));
+    return raw;
+  };
+  const applyXpGain = (raw: number) => {
+    if (hasNameScroll && raw > 0) return Math.round(raw * 1.2);
+    return raw;
+  };
+  const applyVitalityDamage = (raw: number) => {
+    // Ancient Garb (protective clothing) reduces vitality damage by 15%
+    if (hasAncientGarb && raw > 0) return Math.max(1, Math.round(raw * 0.85));
+    return raw;
+  };
+  const applyFocusCost = (raw: number) => {
+    // Obelisk Fragment (Names of power) reduces focus costs by 20%
+    if (hasObeliskFragment && raw > 0) return Math.max(1, Math.round(raw * 0.8));
+    return raw;
+  };
+  const getDangerThreshold = (baseThreshold: number | undefined) => {
+    // Veil Salt makes danger thresholds less harsh by 10% (gives a buffer)
+    if (!baseThreshold) return baseThreshold;
+    if (hasVeilSalt) return Math.round(baseThreshold * 1.1);
+    return baseThreshold;
+  };
 
   const handleAction = async (action: SceneAction, actionIndex: number) => {
     if (isProcessing) return;
-
     setIsProcessing(true);
 
-    // Mark this action as used
-    store.markActionUsed(store.currentScene, actionIndex);
+    const s = useGameStore.getState();
+    s.markActionUsed(s.currentScene, actionIndex);
 
-    // Add small delay for narrative feel
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    await new Promise((r) => setTimeout(r, 250));
+    s.addLog(action.text, 'action');
 
-    // Add action text
-    store.addLog(action.text, 'action');
-
-    // Apply effects
     if (action.xp) {
-      store.addXP(action.xp);
-      store.addLog(`+${action.xp} XP`, 'reward');
+      const xp = applyXpGain(action.xp);
+      s.addXP(xp);
+      s.addLog(`+${xp} XP${hasNameScroll && xp !== action.xp ? ' (Scroll of Names)' : ''}`, 'reward');
     }
 
     if (action.vitality && action.vitality < 0) {
-      store.takeDamage(Math.abs(action.vitality));
-      store.addLog(`−${Math.abs(action.vitality)} Vitality`, 'danger');
+      const damage = applyVitalityDamage(Math.abs(action.vitality));
+      s.takeDamage(damage);
+      s.addLog(
+        `−${damage} Vitality${hasAncientGarb && damage !== Math.abs(action.vitality) ? ' (Ancient Garb)' : ''}`,
+        'danger'
+      );
     } else if (action.vitality && action.vitality > 0) {
-      store.recoverVitality(action.vitality);
-      store.addLog(`+${action.vitality} Vitality`, 'reward');
+      s.recoverVitality(action.vitality);
+      s.addLog(`+${action.vitality} Vitality`, 'reward');
+    }
+
+    if (action.focus && action.focus < 0) {
+      const focusCost = applyFocusCost(Math.abs(action.focus));
+      s.spendFocus(focusCost);
+      s.addLog(
+        `−${focusCost} Focus${hasObeliskFragment && focusCost !== Math.abs(action.focus) ? ' (Obelisk Fragment)' : ''}`,
+        'danger'
+      );
+    } else if (action.focus && action.focus > 0) {
+      s.recoverFocus(action.focus);
+      s.addLog(`+${action.focus} Focus`, 'reward');
     }
 
     if (action.lantern) {
-      store.spendLantern(Math.abs(action.lantern));
-      if (action.lantern < 0) {
-        store.addLog(`Lantern: −${Math.abs(action.lantern)}`, 'system');
-      }
+      const cost = applyLanternCost(Math.abs(action.lantern));
+      s.spendLantern(cost);
+      s.addLog(
+        `Lantern: −${cost}${hasLocator && cost !== Math.abs(action.lantern) ? ' (Locator)' : ''}`,
+        'system'
+      );
     }
 
-    // Add items
     if (action.items) {
-      for (const itemKey of action.items) {
-        const item = createItem(itemKey);
-        store.addItem(item);
-      }
+      for (const itemKey of action.items) s.addItem(createItem(itemKey));
     }
 
-    // Check death condition
-    if (store.vitality <= 0) {
-      store.addLog(' ', 'system');
-      store.addLog('Your strength fails. Darkness claims you.', 'danger');
-      store.addLog('═════════════════════════════════════', 'system');
-      store.addLog('EXPEDITION FAILED', 'danger');
-      store.addLog('═════════════════════════════════════', 'system');
-      store.addLog('Return to the Archive to prepare again.', 'system');
-      store.addLog(' ', 'system');
-      store.endExpedition(false);
+    // Re-read state after mutations
+    const after = useGameStore.getState();
+
+    // Ashwater Flask: revive once when vitality hits 0
+    if (after.vitality <= 0 && hasAshwater) {
+      s.consumeItem('ashwater-flask');
+      s.recoverVitality(20);
+      s.addLog('The Ashwater Flask shatters — warmth floods your veins. +20 Vitality', 'reward');
+    }
+
+    const final = useGameStore.getState();
+
+    if (final.vitality <= 0) {
+      s.addLog('Your strength fails. Darkness claims you.', 'danger');
+      s.addLog('EXPEDITION FAILED', 'danger');
+      s.endExpedition(false);
       setIsProcessing(false);
       return;
     }
 
-    // Check lantern condition
-    if (store.lanternCharge <= 0) {
-      store.addLog(' ', 'system');
-      store.addLog('Your lantern flickers and dies.', 'danger');
-      store.addLog('In the darkness, the gate fades.', 'danger');
-      store.addLog('═════════════════════════════════════', 'system');
-      store.addLog('EXPEDITION FAILED', 'danger');
-      store.addLog('═════════════════════════════════════', 'system');
-      store.endExpedition(false);
+    if (final.lanternCharge <= 0) {
+      s.addLog('Your lantern flickers and dies.', 'danger');
+      s.addLog('EXPEDITION FAILED', 'danger');
+      s.endExpedition(false);
       setIsProcessing(false);
       return;
     }
 
-    // Check danger condition
-    if (action.danger && action.dangerThreshold && store.vitality <= action.dangerThreshold) {
-      store.addLog(' ', 'system');
-      store.addLog('The Veil closes. You are pulled back.', 'danger');
-      store.addLog('═════════════════════════════════════', 'system');
-      store.addLog('EXPEDITION FAILED', 'danger');
-      store.addLog('═════════════════════════════════════', 'system');
-      store.addLog('You limp back to the Archive, wounded.', 'system');
-      store.endExpedition(false);
+    if (action.danger && action.dangerThreshold && final.vitality <= getDangerThreshold(action.dangerThreshold)) {
+      s.addLog('The Veil closes. You are pulled back, wounded.', 'danger');
+      s.addLog('EXPEDITION FAILED', 'danger');
+      s.endExpedition(false);
       setIsProcessing(false);
       return;
     }
 
-    // Move to next scene
     if (action.nextScene) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      store.setScene(action.nextScene);
+      await new Promise((r) => setTimeout(r, 400));
+      s.setScene(action.nextScene);
       const nextScene = SCENES[action.nextScene];
       if (nextScene) {
-        store.addLog(' ', 'system');
-        store.addLog('─────────────────────────────────', 'system');
-        store.addLog(nextScene.title.toUpperCase(), 'system');
-        store.addLog(nextScene.location, 'system');
-        store.addLog('─────────────────────────────────', 'system');
-        store.addLog(nextScene.description, 'narrative');
-        store.addLog(nextScene.atmosphere, 'narrative');
+        s.addLog(`── ${nextScene.title.toUpperCase()} ──`, 'system');
+        s.addLog(nextScene.description, 'narrative');
+        s.addLog(nextScene.atmosphere, 'narrative');
       }
-
-      // Check if win condition
       if (nextScene?.id === 'return-to-archive' || nextScene?.id === 'veil-lost') {
-        store.addLog(' ', 'system');
-        store.addLog('═════════════════════════════════════', 'system');
-        store.addLog(nextScene?.id === 'return-to-archive' ? 'EXPEDITION SUCCESS' : 'VEIL TAKEN', 'reward');
-        store.addLog('═════════════════════════════════════', 'system');
+        s.addLog(
+          nextScene?.id === 'return-to-archive' ? 'EXPEDITION SUCCESS' : 'VEIL TAKEN',
+          'reward'
+        );
+        s.endExpedition(nextScene?.id === 'return-to-archive');
       }
     }
 
@@ -146,12 +181,9 @@ function App() {
 
   const handleRestart = () => {
     store.resetGame();
-    store.addLog('═══════════════════════════════════', 'system');
-    store.addLog('Welcome back, Ashfaller.', 'narrative');
-    store.addLog('The Gate beckons once more.', 'narrative');
-    store.addLog('═══════════════════════════════════', 'system');
-    store.addLog(' ', 'system');
-    store.setScene('ashfall-archive');
+    initRef.current = false;
+    useGameStore.getState().addLog('── A NEW EXPEDITION ──', 'system');
+    useGameStore.getState().addLog('Welcome back, Ashfaller. The Gate beckons once more.', 'narrative');
   };
 
   if (!currentScene) {
@@ -162,7 +194,13 @@ function App() {
     );
   }
 
-  const gameOver = store.vitality <= 0 || store.lanternCharge <= 0;
+  const gameOver = store.vitality <= 0 || store.lanternCharge <= 0 || !!store.gameWon;
+  const runStats = {
+    relics: store.inventory.length,
+    level: store.level,
+    xp: store.xp + (store.level - 1) * 100,
+    scenes: store.discoveredScenes instanceof Set ? store.discoveredScenes.size : 0,
+  };
 
   return (
     <div
@@ -175,24 +213,23 @@ function App() {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center gap-3 flex-wrap">
           <div>
             <h1 className="text-2xl font-black glow-amber leading-none">ASHFALLER</h1>
             <p className="location-tag text-[10px]">The Veil Between</p>
           </div>
-          <div className="text-right">
-            <div className="text-lg font-bold text-amber-300 leading-tight">{currentScene.title}</div>
+          <div className="text-right min-w-0">
+            <div className="text-lg font-bold text-amber-300 leading-tight truncate">
+              {currentScene.title}
+            </div>
             <div className="location-tag text-[10px]">{currentScene.location}</div>
           </div>
         </div>
       </motion.div>
 
-      {/* Main content area */}
-      <div
-        className="min-h-0 overflow-hidden grid gap-3"
-        style={{ gridTemplateColumns: 'minmax(0, 1fr) 320px' }}
-      >
-        {/* Left panel - Chronicle / Narrative */}
+      {/* Main content area — responsive: stacks under 900px */}
+      <div className="main-layout min-h-0 overflow-hidden grid gap-3">
+        {/* Left panel */}
         <div
           className="glass-panel p-4 min-w-0 min-h-0 overflow-hidden grid"
           style={{ gridTemplateRows: 'auto minmax(0, 1fr)' }}
@@ -203,12 +240,11 @@ function App() {
           </div>
         </div>
 
-        {/* Right sidebar - Stats, Relics, Actions - grid pins actions at bottom */}
+        {/* Right sidebar */}
         <div
-          className="min-h-0 overflow-hidden grid gap-3"
+          className="sidebar min-h-0 overflow-hidden grid gap-3"
           style={{ gridTemplateRows: 'auto minmax(0, 1fr) auto' }}
         >
-          {/* Stats Panel */}
           <div className="min-h-0 overflow-hidden">
             <StatsPanel
               vitality={store.vitality}
@@ -222,13 +258,9 @@ function App() {
               level={store.level}
             />
           </div>
-
-          {/* Inventory Panel - flexible middle */}
           <div className="min-h-0 overflow-hidden">
             <InventoryPanel items={store.inventory} maxSize={store.maxInventorySize} />
           </div>
-
-          {/* Actions - always visible at bottom of sidebar */}
           <div className="min-h-0">
             {gameOver ? (
               <motion.button
@@ -245,11 +277,65 @@ function App() {
                 actions={currentScene.actions}
                 onActionSelect={handleAction}
                 disabled={isProcessing}
+                lanternMultiplier={hasLocator ? 0.8 : 1}
               />
             )}
           </div>
         </div>
       </div>
+
+      {/* Game Over Modal */}
+      <AnimatePresence>
+        {gameOver && (
+          <motion.div
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="glass-panel p-6 max-w-md w-full text-center"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+            >
+              <div className="location-tag text-xs mb-2">EXPEDITION ENDED</div>
+              <h2
+                className={`text-3xl font-black mb-4 ${
+                  store.gameWon ? 'text-amber-300 glow-amber' : 'text-red-400 glow-red'
+                }`}
+              >
+                {store.gameWon ? 'RETURN TO ARCHIVE' : 'VEIL CLAIMED YOU'}
+              </h2>
+              <div className="grid grid-cols-2 gap-3 text-sm my-4">
+                <div className="bg-black/40 rounded p-2">
+                  <div className="text-amber-400 text-xs">LEVEL</div>
+                  <div className="text-amber-200 text-xl font-bold">{runStats.level}</div>
+                </div>
+                <div className="bg-black/40 rounded p-2">
+                  <div className="text-amber-400 text-xs">TOTAL XP</div>
+                  <div className="text-amber-200 text-xl font-bold">{runStats.xp}</div>
+                </div>
+                <div className="bg-black/40 rounded p-2">
+                  <div className="text-amber-400 text-xs">RELICS</div>
+                  <div className="text-amber-200 text-xl font-bold">{runStats.relics}</div>
+                </div>
+                <div className="bg-black/40 rounded p-2">
+                  <div className="text-amber-400 text-xs">SCENES</div>
+                  <div className="text-amber-200 text-xl font-bold">{runStats.scenes}</div>
+                </div>
+              </div>
+              <motion.button
+                className="btn-action mt-2"
+                onClick={handleRestart}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                ↻ BEGIN NEW EXPEDITION
+              </motion.button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -21,6 +21,14 @@ export function ActionButtons({
   const usedActionsSet =
     usedActions instanceof Set ? usedActions : new Set<string>();
 
+  const getCostPreview = (action: SceneAction): string[] => {
+    const costs = [];
+    if (action.vitality && action.vitality < 0) costs.push(`−${Math.abs(action.vitality)} Vitality`);
+    if (action.lantern && action.lantern < 0) costs.push(`−${Math.abs(action.lantern)} Lantern`);
+    if (action.focus && action.focus < 0) costs.push(`−${Math.abs(action.focus)} Focus`);
+    return costs;
+  };
+
   return (
     <div className="glass-panel p-3">
       <div className="location-tag text-[10px] mb-2">CHOOSE YOUR ACTION</div>
@@ -28,6 +36,8 @@ export function ActionButtons({
         {actions.map((action, index) => {
           const actionKey = `${sceneId}-${index}`;
           const used = usedActionsSet.has(actionKey);
+          const costs = getCostPreview(action);
+          const costText = costs.length > 0 ? ` · ${costs.join(', ')}` : '';
           return (
             <motion.button
               key={index}
@@ -38,10 +48,11 @@ export function ActionButtons({
               disabled={disabled || used}
               whileHover={!used ? { scale: 1.02 } : {}}
               whileTap={!used ? { scale: 0.98 } : {}}
-              title={used ? 'Already used this action' : ''}
+              title={used ? 'Already used this action' : costs.join('\n')}
             >
               <span className="text-amber-500 font-bold mr-1">▸</span>
               {action.label}
+              {costText && <span className="text-amber-700 text-sm">{costText}</span>}
               {used && <span className="text-gray-500 ml-2 text-xs">(used)</span>}
             </motion.button>
           );

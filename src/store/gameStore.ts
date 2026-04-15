@@ -58,6 +58,9 @@ interface GameStateActions {
   spendLantern: (amount: number) => void;
   discoverScene: (sceneId: string) => void;
   markActionUsed: (sceneId: string, actionIndex: number) => void;
+  spendFocus: (amount: number) => void;
+  recoverFocus: (amount: number) => void;
+  consumeItem: (keyPrefix: string) => void;
 }
 
 export type GameState = GameStateData & GameStateActions;
@@ -200,6 +203,20 @@ export const useGameStore = create<GameState>()(
         set((state) => ({
           currentScene: scene,
           discoveredScenes: new Set([...state.discoveredScenes, scene]),
+          // Clear used actions when moving scenes so actions refresh per-scene visit
+          usedActions: new Set<string>(),
+        }));
+      },
+
+      spendFocus: (amount: number) => {
+        set((state) => ({ focus: Math.max(0, state.focus - amount) }));
+      },
+      recoverFocus: (amount: number) => {
+        set((state) => ({ focus: Math.min(state.maxFocus, state.focus + amount) }));
+      },
+      consumeItem: (keyPrefix: string) => {
+        set((state) => ({
+          inventory: state.inventory.filter((i) => !i.id.startsWith(keyPrefix)),
         }));
       },
 
@@ -244,27 +261,38 @@ export const useGameStore = create<GameState>()(
     }),
     {
       name: 'ashfaller-game',
+      // Only persist long-term progression. Session state (log, hasStarted,
+      // current scene, usedActions) resets each browser load for a fresh run.
       partialize: (state) => ({
-        ...state,
+        level: state.level,
+        xp: state.xp,
+        xpToNextLevel: state.xpToNextLevel,
+        maxVitality: state.maxVitality,
+        inventory: state.inventory,
         discoveredScenes: Array.from(state.discoveredScenes),
         visitedLocations: Array.from(state.visitedLocations),
-        usedActions: Array.from(state.usedActions),
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
           state.discoveredScenes = new Set(
-            Array.isArray(state.discoveredScenes)
-              ? state.discoveredScenes
-              : []
+            Array.isArray(state.discoveredScenes) ? state.discoveredScenes : ['ashfall-archive']
           );
           state.visitedLocations = new Set(
-            Array.isArray(state.visitedLocations)
-              ? state.visitedLocations
-              : []
+            Array.isArray(state.visitedLocations) ? state.visitedLocations : ['archive']
           );
-          state.usedActions = new Set(
-            Array.isArray(state.usedActions) ? state.usedActions : []
-          );
+          state.usedActions = new Set<string>();
+          // Reset session state for fresh start on each page load
+          state.hasStarted = false;
+          state.gameLog = [];
+          state.gameOver = false;
+          state.gameWon = false;
+          state.isInExpedition = false;
+          state.currentScene = 'ashfall-archive';
+          state.currentLocation = 'archive';
+          // Heal fully on fresh page load
+          state.vitality = state.maxVitality;
+          state.focus = state.maxFocus;
+          state.lanternCharge = state.maxLanternCharge;
         }
       },
     }
