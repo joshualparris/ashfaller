@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { useEffect } from 'react';
 import type { SceneAction } from '../data/scenes';
 import { useGameStore } from '../store/gameStore';
 
@@ -18,10 +19,30 @@ export function ActionButtons({
   disabled = false,
 }: ActionButtonsProps) {
   const usedActions = useGameStore((state) => state.usedActions);
+  const keyBindings = useGameStore((state) => state.keyBindings);
 
   // Defensive: handle case where persist may have stored as plain object
   const usedActionsSet =
     usedActions instanceof Set ? usedActions : new Set<string>();
+
+  // Keyboard handling
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (disabled) return;
+
+      const actionIndex = keyBindings[e.key.toLowerCase()];
+      if (actionIndex !== undefined && actionIndex < actions.length) {
+        const actionKey = `${sceneId}-${actionIndex}`;
+        const used = usedActionsSet.has(actionKey);
+        if (!used) {
+          onActionSelect(actions[actionIndex], actionIndex);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [disabled, actions, sceneId, keyBindings, usedActionsSet, onActionSelect]);
 
   const getCostPreview = (action: SceneAction): string[] => {
     const costs = [];

@@ -11,12 +11,20 @@ export interface GameLog {
   timestamp: number;
 }
 
-export interface InventoryItem {
+export interface Achievement {
   id: string;
-  name: string;
-  rarity: 'common' | 'uncommon' | 'rare' | 'mythic';
+  title: string;
   description: string;
-  effect?: string;
+  earned: boolean;
+  earnedAt?: number;
+}
+
+export interface ExpeditionLogEntry {
+  id: string;
+  text: string;
+  type: 'narrative' | 'action' | 'reward' | 'danger' | 'system';
+  timestamp: number;
+  sceneId?: string;
 }
 
 interface GameStateData {
@@ -41,6 +49,14 @@ interface GameStateData {
   visitedLocations: Set<string>;
   gameLog: GameLog[];
   usedActions: Set<string>;
+  // New features
+  lorePoints: number;
+  achievements: Achievement[];
+  expeditionLog: ExpeditionLogEntry[];
+  currentProfile: string;
+  narrationSpeed: number;
+  keyBindings: { [key: string]: number };
+  difficulty: 'casual' | 'normal' | 'hardcore';
 }
 
 interface GameStateActions {
@@ -52,20 +68,53 @@ interface GameStateActions {
   removeItem: (id: string) => void;
   setLocation: (location: string) => void;
   setScene: (scene: string) => void;
-  startExpedition: () => void;
-  endExpedition: (won: boolean) => void;
-  resetGame: () => void;
-  spendLantern: (amount: number) => void;
+  // New features
+  addLorePoints: (amount: number) => void;
+  unlockAchievement: (achievementId: string) => void;
+  addExpeditionLogEntry: (entry: ExpeditionLogEntry) => void;
+  setProfile: (profile: string) => void;
+  setNarrationSpeed: (speed: number) => void;
+  setKeyBinding: (key: string, actionIndex: number) => void;
+  setDifficulty: (difficulty: 'casual' | 'normal' | 'hardcore') => void;
+  resetExpedition: () => void; spendLantern: (amount: number) => void;
   recoverLantern: (amount: number) => void;
   discoverScene: (sceneId: string) => void;
   markActionUsed: (sceneId: string, actionIndex: number) => void;
   clearUsedActions: () => void;
   spendFocus: (amount: number) => void;
   recoverFocus: (amount: number) => void;
-  consumeItem: (keyPrefix: string) => void;
-}
-
-export type GameState = GameStateData & GameStateActions;
+  consumeItemAchievements: Achievement[] = [
+  {
+    id: 'first-expedition',
+    title: 'First Steps',
+    description: 'Complete your first expedition through the Veil.',
+    earned: false,
+  },
+  {
+    id: 'rare-collector',
+    title: 'Relic Hunter',
+    description: 'Find all rare relics in a single expedition.',
+    earned: false,
+  },
+  {
+    id: 'lantern-master',
+    title: 'Light Keeper',
+    description: 'Complete an expedition without your lantern dropping below 50%.',
+    earned: false,
+  },
+  {
+    id: 'veil-survivor',
+    title: 'Veil Survivor',
+    description: 'Survive being pulled back by the Veil.',
+    earned: false,
+  },
+  {
+    id: 'knowledge-seeker',
+    title: 'Knowledge Seeker',
+    description: 'Accumulate 100 lore points.',
+    earned: false,
+  },
+];
 
 const initialState: GameStateData = {
   vitality: 50,
@@ -84,6 +133,19 @@ const initialState: GameStateData = {
   gameOver: false,
   gameWon: false,
   inventory: [],
+  maxInventorySize: 6,
+  discoveredScenes: new Set<string>(['ashfall-archive']),
+  visitedLocations: new Set<string>(['archive']),
+  gameLog: [] as GameLog[],
+  usedActions: new Set<string>(),
+  // New features
+  lorePoints: 0,
+  achievements: initialAchievements,
+  expeditionLog: [],
+  currentProfile: 'default',
+  narrationSpeed: 1.0,
+  keyBindings: { '1': 0, '2': 1, '3': 2, '4': 3 },
+  difficulty: 'normal'
   maxInventorySize: 6,
   discoveredScenes: new Set<string>(['ashfall-archive']),
   visitedLocations: new Set<string>(['archive']),
@@ -223,7 +285,78 @@ export const useGameStore = create<GameState>()(
       },
 
       startExpedition: () => {
-        set({
+        
+
+      // New features
+      addLorePoints: (amount: number) => {
+        set((state) => ({ lorePoints: state.lorePoints + amount }));
+      },
+
+      unlockAchievement: (achievementId: string) => {
+        set((state) => ({
+          achievements: state.achievements.map(achievement =>
+            achievement.id === achievementId
+              ? { ...achievement, earned: true, earnedAt: Date.now() }
+              : achievement
+          ),
+        }));
+      },
+
+      addExpeditionLogEntry: (entry: ExpeditionLogEntry) => {
+        set((state) => ({
+        // New persistent data
+        lorePoints: state.lorePoints,
+        achievements: state.achievements,
+        expeditionLog: state.expeditionLog,
+        narrationSpeed: state.narrationSpeed,
+        keyBindings: state.keyBindings,
+        difficulty: state.difficulty,
+          expeditionLog: [...state.expeditionLog, entry].slice(-100), // Keep last 100 entries
+        }));
+      },
+
+      setProfile: (profile: string) => {
+        set({ currentProfile: profile });
+      },
+
+      setNarrationSpeed: (speed: number) => {
+        set({ narrationSpeed: speed });
+      },
+
+      setKeyBinding: (key: string, actionIndex: number) => {
+        set((state) => ({
+          keyBindings: { ...state.keyBindings, [key]: actionIndex },
+          // Initialize new features if missing
+          if (state.achievements === undefined) state.achievements = initialAchievements;
+          if (state.expeditionLog === undefined) state.expeditionLog = [];
+          if (state.lorePoints === undefined) state.lorePoints = 0;
+          if (state.narrationSpeed === undefined) state.narrationSpeed = 1.0;
+          if (state.keyBindings === undefined) state.keyBindings = { '1': 0, '2': 1, '3': 2, '4': 3 };
+          if (state.difficulty === undefined) state.difficulty = 'normal';
+        }));
+      },
+
+      setDifficulty: (difficulty: 'casual' | 'normal' | 'hardcore') => {
+        set({ difficulty });
+      },
+
+      resetExpedition: () => {
+        set((state) => ({
+          isInExpedition: false,
+          currentLocation: 'archive',
+          currentScene: 'ashfall-archive',
+          usedActions: new Set<string>(),
+          gameOver: false,
+          gameWon: false,
+          // Reset stats based on difficulty
+          vitality: state.difficulty === 'casual' ? 60 : state.difficulty === 'hardcore' ? 40 : 50,
+          maxVitality: state.difficulty === 'casual' ? 60 : state.difficulty === 'hardcore' ? 40 : 50,
+          focus: state.difficulty === 'casual' ? 35 : state.difficulty === 'hardcore' ? 25 : 30,
+          maxFocus: state.difficulty === 'casual' ? 35 : state.difficulty === 'hardcore' ? 25 : 30,
+          lanternCharge: state.difficulty === 'casual' ? 120 : state.difficulty === 'hardcore' ? 80 : 100,
+          maxLanternCharge: state.difficulty === 'casual' ? 120 : state.difficulty === 'hardcore' ? 80 : 100,
+        }));
+      },set({
           isInExpedition: true,
           currentLocation: 'red-waste',
           currentScene: 'threshold-gate',

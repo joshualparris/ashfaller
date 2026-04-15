@@ -5,6 +5,9 @@ import { GameLog } from './components/GameLog';
 import { StatsPanel } from './components/StatsPanel';
 import { InventoryPanel } from './components/InventoryPanel';
 import { ActionButtons } from './components/ActionButtons';
+import { Journal } from './components/ui/Journal';
+import { AchievementToast } from './components/ui/AchievementToast';
+import { ProfileSelector } from './components/ui/ProfileSelector';
 import SCENES from './data/scenes';
 import type { Scene, SceneAction } from './data/scenes';
 import { createItem } from './data/items';
@@ -28,11 +31,58 @@ function App() {
     s.addLog('═══════════════════════════════════', 'system');
   }, []);
 
-  // Update current scene
+  // Update ambient audio when location changes
   useEffect(() => {
-    const scene = SCENES[store.currentScene];
-    if (scene) setCurrentScene(scene);
-  }, [store.currentScene]);
+    playAmbient(store.currentLocation);
+  }, [store.currentLocation]);
+
+  // Achievement checking
+  useEffect(() => {
+    const checkAchievements = () => {
+      const state = useGameStore.getState();
+
+      // First expedition
+      if (state.gameWon && !state.achievements.find(a => a.id === 'first-expedition')?.earned) {
+        state.unlockAchievement('first-expedition');
+        setAchievementToast({
+          title: 'First Steps',
+          description: 'Complete your first expedition through the Veil.',
+        });
+      }
+
+      // Rare collector
+      const rareItems = state.inventory.filter(item => item.rarity === 'rare').length;
+      if (rareItems >= 3 && !state.achievements.find(a => a.id === 'rare-collector')?.earned) {
+        state.unlockAchievement('rare-collector');
+        setAchievementToast({
+          title: 'Relic Hunter',
+          description: 'Find all rare relics in a single expedition.',
+        });
+      }
+
+      // Lantern master
+      if (state.gameWon && state.lanternCharge >= 50 && !state.achievements.find(a => a.id === 'lantern-master')?.earned) {
+        state.unlockAchievement('lantern-master');
+        setAchievementToast({
+          title: 'Light Keeper',
+          description: 'Complete an expedition without your lantern dropping below 50%.',
+        });
+      }
+
+      // Knowledge seeker
+      if (state.lorePoints >= 100 && !state.achievements.find(a => a.id === 'knowledge-seeker')?.earned) {
+        state.unlockAchievement('knowledge-seeker');
+        setAchievementToast({
+          title: 'Knowledge Seeker',
+          description: 'Accumulate 100 lore points.',
+        });
+      }
+    };
+
+    if (store.gameWon) {
+      checkAchievements();
+    }
+  }, [store.gameWon, store.inventory, store.lorePoints]);
 
   // Derived item effects
   const hasLocator = store.inventory.some((i) => i.id.startsWith('brass-locator'));
@@ -79,15 +129,16 @@ function App() {
     const s = useGameStore.getState();
     s.markActionUsed(s.currentScene, actionIndex);
 
-    await new Promise((r) => setTimeout(r, 250));
+    await new Promise((r) => setTimeout(r, 250 * (1 / store.narrationSpeed)));
     s.addLog(action.text, 'action');
 
     // Apply per-scene lantern drain (atmosphere cost of being in dangerous place)
     const currentSceneData = currentScene;
     if (currentSceneData?.lanternCostPerAction && currentSceneData.lanternCostPerAction > 0) {
-      s.spendLantern(currentSceneData.lanternCostPerAction);
+      const drainAmount = Math.round(currentSceneData.lanternCostPerAction * difficultyMod.drain);
+      s.spendLantern(drainAmount);
       s.addLog(
-        `Lantern: −${currentSceneData.lanternCostPerAction} (atmosphere drain)`,
+        `Lantern: −${drainAmount} (atmosphere drain)`,
         'system'
       );
     }
@@ -189,7 +240,7 @@ function App() {
     }
 
     if (action.nextScene) {
-      await new Promise((r) => setTimeout(r, 400));
+      await new Promise((r) => setTimeout(r, 400 * (1 / store.narrationSpeed)));
       s.setScene(action.nextScene);
       const nextScene = SCENES[action.nextScene];
       if (nextScene) {
@@ -203,6 +254,17 @@ function App() {
           'reward'
         );
         s.endExpedition(nextScene?.id === 'return-to-archive');
+        if (nextScene?.id === 'return-to-archive') {
+          s.addLorePoints(10); // Award lore points for successful expedition
+          // Add to expedition log
+          s.addExpeditionLogEntry({
+            id: `success-${Date.now()}`,
+            text: 'Expedition completed successfully',
+            type: 'reward',
+            timestamp: Date.now(),
+            sceneId: s.currentScene,
+          });
+        }
       }
     }
 
@@ -314,9 +376,39 @@ function App() {
         </div>
       </div>
 
-      {/* Game Over Modal */}
+      {/* Journal Modal */}
       <AnimatePresence>
-        {gameOver && (
+        {showJournal && (
+          <Journal
+            discoveredScenes={store.discoveredScenes}
+            expeditionLog={store.expeditionLog}
+            achievements={store.achievements}
+            lorePoints={store.lorePoints}
+            onClose={() => setShowJournal(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Profile Selector Modal */}
+      <AnimatePresence>
+        {showProfileSelector && (
+          <ProfileSelector
+            currentProfile={store.currentProfile}
+            onProfileChange={(profile) => store.setProfile(profile)}
+            onClose={() => setShowProfileSelector(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Achievement Toast */}
+      <AnimatePresence>
+        {achievementToast && (
+          <AchievementToast
+            achievement={achievementToast}
+            onClose={() => setAchievementToast(null)}
+          />
+        )}
+      </AnimatePresence>
           <motion.div
             className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
             initial={{ opacity: 0 }}
