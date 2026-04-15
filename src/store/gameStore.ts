@@ -56,6 +56,7 @@ interface GameStateActions {
   endExpedition: (won: boolean) => void;
   resetGame: () => void;
   spendLantern: (amount: number) => void;
+  recoverLantern: (amount: number) => void;
   discoverScene: (sceneId: string) => void;
   markActionUsed: (sceneId: string, actionIndex: number) => void;
   clearUsedActions: () => void;
@@ -245,6 +246,12 @@ export const useGameStore = create<GameState>()(
       spendLantern: (amount: number) => {
         set((state) => ({
           lanternCharge: Math.max(0, state.lanternCharge - amount),
+        }));
+      },
+
+      recoverLantern: (amount: number) => {
+        set((state) => ({
+          lanternCharge: Math.min(state.maxLanternCharge, state.lanternCharge + amount),
         }));
       },
 

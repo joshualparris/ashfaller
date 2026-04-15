@@ -106,7 +106,7 @@ const SCENES: { [key: string]: Scene } = {
       'An endless plain of rust-colored sand and broken stone. The sky is wrong—half-crimson, half-starlit. In the distance, dunes roll like waves frozen in time. The air tastes of copper and ash. Your lantern is your only comfort.',
     atmosphere:
       'This is no natural place. The ground remembers a civilization that fell into silence. You are alone, but not unwatched. The Veil feels thin here.',
-    lanternCostPerAction: 5,
+    lanternCostPerAction: 4,
     lootPool: {
       common: ['gate-coin'],
       uncommon: ['dustglass-shard', 'whisper-thread', 'ashwater-flask'],
@@ -141,6 +141,7 @@ const SCENES: { [key: string]: Scene } = {
         text: 'You sit on a stone outcropping. The red sky pulses. Your breathing slows. You feel watched, but it is not hostile. Strange comfort here in the waste.',
         vitality: 10,
         xp: 5,
+        lantern: 10,
       },
     ],
   },
@@ -178,9 +179,10 @@ const SCENES: { [key: string]: Scene } = {
       },
       {
         label: 'Search for Shelter',
-        text: 'You find a hollow beneath the dune, a cavity in the stone. Inside, strange symbols are etched into the walls, and a relic box sits untouched.',
+        text: 'You find a hollow beneath the dune, a cavity in the stone. Inside, strange symbols are etched into the walls, and a relic box sits untouched. The shelter also protects your lantern from the harsh wind.',
         xp: 20,
         vitality: -5,
+        lantern: 5,
         items: ['brass-locator'],
       },
       {

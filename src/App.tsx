@@ -129,12 +129,17 @@ function App() {
     }
 
     if (action.lantern) {
-      const cost = applyLanternCost(Math.abs(action.lantern));
-      s.spendLantern(cost);
-      s.addLog(
-        `Lantern: −${cost}${hasLocator && cost !== Math.abs(action.lantern) ? ' (Locator)' : ''}`,
-        'system'
-      );
+      if (action.lantern < 0) {
+        const cost = applyLanternCost(Math.abs(action.lantern));
+        s.spendLantern(cost);
+        s.addLog(
+          `Lantern: −${cost}${hasLocator && cost !== Math.abs(action.lantern) ? ' (Locator)' : ''}`,
+          'system'
+        );
+      } else {
+        s.recoverLantern(action.lantern);
+        s.addLog(`Lantern: +${action.lantern}`, 'reward');
+      }
     }
 
     if (action.items) {
