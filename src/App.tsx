@@ -62,11 +62,15 @@ function App() {
     if (hasObeliskFragment && raw > 0) return Math.max(1, Math.round(raw * 0.8));
     return raw;
   };
-  const getDangerThreshold = (baseThreshold: number | undefined) => {
+  const getDangerThreshold = (baseThreshold: number | undefined, currentFocus: number) => {
     // Veil Salt makes danger thresholds less harsh by 10% (gives a buffer)
     if (!baseThreshold) return baseThreshold;
-    if (hasVeilSalt) return Math.round(baseThreshold * 1.1);
-    return baseThreshold;
+    let adjusted = baseThreshold;
+    if (hasVeilSalt) adjusted = Math.round(adjusted * 1.1);
+    // High focus reduces danger (you're focused, less likely to get caught); low focus increases it
+    // For every 5 Focus above 15, gain +1 to threshold (safer). For every 5 below 15, lose -1 (more danger)
+    const focusScale = Math.round((currentFocus - 15) / 5);
+    return Math.max(5, adjusted + focusScale);
   };
 
   const handleAction = async (action: SceneAction, actionIndex: number) => {
@@ -78,6 +82,16 @@ function App() {
 
     await new Promise((r) => setTimeout(r, 250));
     s.addLog(action.text, 'action');
+
+    // Apply per-scene lantern drain (atmosphere cost of being in dangerous place)
+    const currentSceneData = currentScene;
+    if (currentSceneData?.lanternCostPerAction && currentSceneData.lanternCostPerAction > 0) {
+      s.spendLantern(currentSceneData.lanternCostPerAction);
+      s.addLog(
+        `Lantern: −${currentSceneData.lanternCostPerAction} (atmosphere drain)`,
+        'system'
+      );
+    }
 
     if (action.xp) {
       const xp = applyXpGain(action.xp);
@@ -134,6 +148,11 @@ function App() {
 
     const final = useGameStore.getState();
 
+    // Warn if lantern is getting dangerously low
+    if (final.lanternCharge > 0 && final.lanternCharge <= 20 && !action.isEndScene) {
+      s.addLog('⚠ Your lantern flickers weakly. Seek the way home soon.', 'danger');
+    }
+
     if (final.vitality <= 0) {
       s.addLog('Your strength fails. Darkness claims you.', 'danger');
       s.addLog('EXPEDITION FAILED', 'danger');
@@ -150,7 +169,7 @@ function App() {
       return;
     }
 
-    if (action.danger && action.dangerThreshold && final.vitality <= getDangerThreshold(action.dangerThreshold)) {
+    if (action.danger && action.dangerThreshold && final.vitality <= getDangerThreshold(action.dangerThreshold, final.focus)) {
       s.addLog('The Veil closes. You are pulled back, wounded.', 'danger');
       s.addLog('EXPEDITION FAILED', 'danger');
       s.endExpedition(false);

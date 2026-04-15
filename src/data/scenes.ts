@@ -3,12 +3,14 @@ export interface SceneAction {
   text: string;
   nextScene?: string;
   vitality?: number;
+  focus?: number;
   xp?: number;
   items?: string[];
   lantern?: number;
   danger?: boolean;
   dangerThreshold?: number;
   isEndScene?: boolean;
+  focusRequired?: number; // minimum focus needed, or action becomes risky
 }
 
 export interface Scene {
@@ -19,6 +21,8 @@ export interface Scene {
   atmosphere: string;
   actions: SceneAction[];
   isEndScene?: boolean;
+  lanternCostPerAction?: number; // fixed lantern drain per action in this scene
+  lootPool?: { common: string[]; uncommon: string[]; rare: string[]; mythic: string[] };
 }
 
 const SCENES: { [key: string]: Scene } = {
@@ -30,6 +34,7 @@ const SCENES: { [key: string]: Scene } = {
       'A vast underground chamber carved into rust-red stone. Ancient brass fixtures line the obsidian-glass walls, still faintly glowing with a light no one has replenished in centuries. Dust hangs in the air like ash — hence the name. Old maps hang from chains. A central terminal hums with a faint cyan pulse.',
     atmosphere:
       'This is your home. A sanctuary. A place of waiting. The gate pulses softly in the floor beneath the maps, and you feel its pull.',
+    lanternCostPerAction: 0,
     actions: [
       {
         label: 'Study the Maps',
@@ -64,6 +69,7 @@ const SCENES: { [key: string]: Scene } = {
       'A towering oval structure of obsidian and brass, ancient beyond measure. Its surface is covered in glyphs that pulse with amber light. The air smells of iron and red dust. A low hum vibrates through your bones. This is the gateway between worlds.',
     atmosphere:
       'You have stood here many times, but the dread never fades. The gate is opening. Something is calling from the other side. You can feel the Veil thinning.',
+    lanternCostPerAction: 2,
     actions: [
       {
         label: 'Listen at the Gate',
@@ -100,6 +106,13 @@ const SCENES: { [key: string]: Scene } = {
       'An endless plain of rust-colored sand and broken stone. The sky is wrong—half-crimson, half-starlit. In the distance, dunes roll like waves frozen in time. The air tastes of copper and ash. Your lantern is your only comfort.',
     atmosphere:
       'This is no natural place. The ground remembers a civilization that fell into silence. You are alone, but not unwatched. The Veil feels thin here.',
+    lanternCostPerAction: 5,
+    lootPool: {
+      common: ['gate-coin'],
+      uncommon: ['dustglass-shard', 'whisper-thread', 'ashwater-flask'],
+      rare: ['brass-locator'],
+      mythic: [],
+    },
     actions: [
       {
         label: 'Travel Deeper',
@@ -140,6 +153,13 @@ const SCENES: { [key: string]: Scene } = {
       'A dune of fused sand—glassy, smooth, reflecting the strange sky. At its peak stands the remnant of a pillar, still inscribed with legible script. The ground shimmers. Your lantern casts strange shadows.',
     atmosphere:
       'This was a temple. A waystation. A boundary marker. The Veil is very thin here. You can almost see two worlds at once—the red waste and something else, something cold and ancient.',
+    lanternCostPerAction: 8,
+    lootPool: {
+      common: ['gate-coin'],
+      uncommon: ['dustglass-shard', 'whisper-thread'],
+      rare: ['brass-locator', 'veil-salt'],
+      mythic: [],
+    },
     actions: [
       {
         label: 'Climb to the Pillar',
@@ -180,6 +200,13 @@ const SCENES: { [key: string]: Scene } = {
       'A colossal stone structure, half-buried in sand. It is shattered, pieces scattered like the remains of a felled giant. The stone is inscribed with Names and Codes—some partially legible. The sky here is darker, deeper, full of stars that do not exist in your world. The Veil is almost transparent.',
     atmosphere:
       'This is sacred ground. The obelisk once anchored the Veil itself. Now it is broken, and the barrier between worlds has grown thin. You sense something vast beyond—not hostile, but ancient and aware.',
+    lanternCostPerAction: 12,
+    lootPool: {
+      common: [],
+      uncommon: ['ashwater-flask'],
+      rare: ['obelisk-fragment', 'veil-salt'],
+      mythic: ['name-scroll'],
+    },
     actions: [
       {
         label: 'Study the Names',
@@ -221,6 +248,13 @@ const SCENES: { [key: string]: Scene } = {
       'Massive metal vessels, once vehicles of some kind, now rusted and half-buried. They are arranged in a circle, as if the travelers meant to defend against something. Inside the circle, the sand is disturbed—signs of a terrible struggle. Bones, faded cloth, and scattered artifacts lie among the dunes.',
     atmosphere:
       'This is a grave. A tomb. These travelers came through the Veil and never returned. Their fate is a warning. Yet among the ruin, you sense value—relics of great power, perhaps answers.',
+    lanternCostPerAction: 15,
+    lootPool: {
+      common: [],
+      uncommon: [],
+      rare: ['ancient-garb', 'veil-claw'],
+      mythic: ['crystal-message'],
+    },
     actions: [
       {
         label: 'Search the Vessels',
@@ -258,6 +292,7 @@ const SCENES: { [key: string]: Scene } = {
       'The red sky cracks like glass. Through the fissures, you see amber light—the Archive. The Threshold Gate is open, but it is shrieking. The Veil is collapsing. You can feel reality splintering. The path back is clear, but it will close soon.',
     atmosphere:
       'This is the final moment. The gate will not stay open forever. You have seconds to decide: leap back to safety or push deeper into the unknown and risk being sealed in the Veil forever.',
+    lanternCostPerAction: 0,
     actions: [
       {
         label: 'Extract Now',
