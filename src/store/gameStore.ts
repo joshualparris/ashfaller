@@ -394,14 +394,61 @@ export const useGameStore = create<GameState>()(
         }));
       },
 
-      markActionUsed: (sceneId: string, actionIndex: number) => {
+      // New features
+      addLorePoints: (amount: number) => {
+        set((state) => ({ lorePoints: state.lorePoints + amount }));
+      },
+
+      unlockAchievement: (achievementId: string) => {
         set((state) => ({
-          usedActions: new Set([...state.usedActions, `${sceneId}-${actionIndex}`]),
+          achievements: state.achievements.map(achievement =>
+            achievement.id === achievementId
+              ? { ...achievement, earned: true, earnedAt: Date.now() }
+              : achievement
+          ),
         }));
       },
 
-      clearUsedActions: () => {
-        set({ usedActions: new Set<string>() });
+      addExpeditionLogEntry: (entry: ExpeditionLogEntry) => {
+        set((state) => ({
+          expeditionLog: [...state.expeditionLog, entry].slice(-100), // Keep last 100 entries
+        }));
+      },
+
+      setProfile: (profile: string) => {
+        set({ currentProfile: profile });
+      },
+
+      setNarrationSpeed: (speed: number) => {
+        set({ narrationSpeed: speed });
+      },
+
+      setKeyBinding: (key: string, actionIndex: number) => {
+        set((state) => ({
+          keyBindings: { ...state.keyBindings, [key]: actionIndex },
+        }));
+      },
+
+      setDifficulty: (difficulty: 'casual' | 'normal' | 'hardcore') => {
+        set({ difficulty });
+      },
+
+      resetExpedition: () => {
+        set((state) => ({
+          isInExpedition: false,
+          currentLocation: 'archive',
+          currentScene: 'ashfall-archive',
+          usedActions: new Set<string>(),
+          gameOver: false,
+          gameWon: false,
+          // Reset stats based on difficulty
+          vitality: state.difficulty === 'casual' ? 60 : state.difficulty === 'hardcore' ? 40 : 50,
+          maxVitality: state.difficulty === 'casual' ? 60 : state.difficulty === 'hardcore' ? 40 : 50,
+          focus: state.difficulty === 'casual' ? 35 : state.difficulty === 'hardcore' ? 25 : 30,
+          maxFocus: state.difficulty === 'casual' ? 35 : state.difficulty === 'hardcore' ? 25 : 30,
+          lanternCharge: state.difficulty === 'casual' ? 120 : state.difficulty === 'hardcore' ? 80 : 100,
+          maxLanternCharge: state.difficulty === 'casual' ? 120 : state.difficulty === 'hardcore' ? 80 : 100,
+        }));
       },
     }),
     {
@@ -416,6 +463,13 @@ export const useGameStore = create<GameState>()(
         inventory: state.inventory,
         discoveredScenes: Array.from(state.discoveredScenes),
         visitedLocations: Array.from(state.visitedLocations),
+        // New persistent data
+        lorePoints: state.lorePoints,
+        achievements: state.achievements,
+        expeditionLog: state.expeditionLog,
+        narrationSpeed: state.narrationSpeed,
+        keyBindings: state.keyBindings,
+        difficulty: state.difficulty,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
@@ -431,6 +485,13 @@ export const useGameStore = create<GameState>()(
           state.gameLog = [];
           state.gameOver = false;
           state.gameWon = false;
+          // Initialize new features if missing
+          if (state.achievements === undefined) state.achievements = initialAchievements;
+          if (state.expeditionLog === undefined) state.expeditionLog = [];
+          if (state.lorePoints === undefined) state.lorePoints = 0;
+          if (state.narrationSpeed === undefined) state.narrationSpeed = 1.0;
+          if (state.keyBindings === undefined) state.keyBindings = { '1': 0, '2': 1, '3': 2, '4': 3 };
+          if (state.difficulty === undefined) state.difficulty = 'normal';
           state.isInExpedition = false;
           state.currentScene = 'ashfall-archive';
           state.currentLocation = 'archive';
