@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { createItem } from '../data/items';
 
 let logIdCounter = 0;
 const nextLogId = () => `log-${Date.now()}-${++logIdCounter}`;
@@ -34,6 +33,8 @@ export interface InventoryItem {
   rarity: 'common' | 'uncommon' | 'rare' | 'mythic';
   description: string;
   effect: string;
+  attunement?: number;
+  onUseBonus?: { xp?: number; vitality?: number };
   upgrade?: {
     cost: number;
     newName: string;
@@ -140,9 +141,16 @@ interface GameStateActions {
   spendFocus: (amount: number) => void;
   recoverFocus: (amount: number) => void;
   upgradeItem: (itemId: string) => void;
+  attuneItem: (itemId: string) => void;
   setActiveChallenges: (challenges: string[]) => void;
   addRunHistory: (run: any) => void;
+  consumeItem: (keyPrefix: string) => void;
+  startExpedition: () => void;
+  endExpedition: (won: boolean) => void;
+  resetGame: () => void;
 }
+
+export type GameState = GameStateData & GameStateActions;
 
 const initialState: GameStateData = {
   vitality: 50,
@@ -187,7 +195,7 @@ export const useGameStore = create<GameState>()(
       ...initialState,
 
       addLog: (text: string, type: GameLog['type']) => {
-        set((state) => ({
+        set((state: GameState) => ({
           gameLog: [
             ...state.gameLog,
             {
@@ -201,7 +209,7 @@ export const useGameStore = create<GameState>()(
       },
 
       takeDamage: (amount: number) => {
-        set((state) => {
+        set((state: GameState) => {
           let multiplier = 1;
           if (state.activeChallenges.includes('fragile')) multiplier = 1.5;
           return {
@@ -211,13 +219,13 @@ export const useGameStore = create<GameState>()(
       },
 
       recoverVitality: (amount: number) => {
-        set((state) => ({
+        set((state: GameState) => ({
           vitality: Math.min(state.maxVitality, state.vitality + amount),
         }));
       },
 
       addXP: (amount: number) => {
-        set((state) => {
+        set((state: GameState) => {
           let newXp = state.xp + amount;
           let newLevel = state.level;
           let newXpToNext = state.xpToNextLevel;
@@ -243,7 +251,7 @@ export const useGameStore = create<GameState>()(
       },
 
       addItem: (item: InventoryItem) => {
-        set((state) => {
+        set((state: GameState) => {
           if (state.inventory.length >= state.maxInventorySize) {
             return {
               gameLog: [
@@ -283,20 +291,20 @@ export const useGameStore = create<GameState>()(
       },
 
       removeItem: (id: string) => {
-        set((state) => ({
+        set((state: GameState) => ({
           inventory: state.inventory.filter((item) => item.id !== id),
         }));
       },
 
       setLocation: (location: string) => {
-        set((state) => ({
+        set((state: GameState) => ({
           currentLocation: location,
           visitedLocations: new Set([...state.visitedLocations, location]),
         }));
       },
 
       setScene: (scene: string) => {
-        set((state) => ({
+        set((state: GameState) => ({
           currentScene: scene,
           discoveredScenes: new Set([...state.discoveredScenes, scene]),
           // Clear used actions when moving scenes so actions refresh per-scene visit
@@ -305,14 +313,14 @@ export const useGameStore = create<GameState>()(
       },
 
       spendFocus: (amount: number) => {
-        set((state) => ({ focus: Math.max(0, state.focus - amount) }));
+        set((state: GameState) => ({ focus: Math.max(0, state.focus - amount) }));
       },
       recoverFocus: (amount: number) => {
-        set((state) => ({ focus: Math.min(state.maxFocus, state.focus + amount) }));
+        set((state: GameState) => ({ focus: Math.min(state.maxFocus, state.focus + amount) }));
       },
 
       upgradeItem: (itemId: string) => {
-        set((state) => {
+        set((state: GameState) => {
           const item = state.inventory.find(i => i.id === itemId);
           if (!item || !item.upgrade || state.lorePoints < item.upgrade.cost) {
             return state;
@@ -328,17 +336,50 @@ export const useGameStore = create<GameState>()(
         });
       },
 
+      attuneItem: (itemId: string) => {
+        set((state: GameState) => {
+          const item = state.inventory.find(i => i.id === itemId);
+          if (!item) return state;
+
+          const currentAttunement = item.attunement || 0;
+          if (currentAttunement >= 10) return state;
+
+          const newAttunement = currentAttunement + 1;
+          const newInventory = state.inventory.map(i =>
+            i.id === itemId ? { ...i, attunement: newAttunement } : i
+          );
+
+          let logText = `Your connection with ${item.name} grows. (Attunement: ${newAttunement}/10)`;
+          if (newAttunement === 10) {
+            logText = `The ${item.name} AWAKENS! You have mastered this relic.`;
+          }
+
+          return {
+            inventory: newInventory,
+            gameLog: [
+              ...state.gameLog,
+              {
+                id: nextLogId(),
+                text: logText,
+                type: 'reward' as const,
+                timestamp: Date.now(),
+              },
+            ].slice(-50),
+          };
+        });
+      },
+
       setActiveChallenges: (challenges: string[]) => {
         set({ activeChallenges: challenges });
       },
 
       addRunHistory: (run: any) => {
-        set((state) => ({
+        set((state: GameState) => ({
           runHistory: [...state.runHistory, run].slice(-10), // Keep last 10
         }));
       },
       consumeItem: (keyPrefix: string) => {
-        set((state) => ({
+        set((state: GameState) => ({
           inventory: state.inventory.filter((i) => !i.id.startsWith(keyPrefix)),
         }));
       },
@@ -352,11 +393,11 @@ export const useGameStore = create<GameState>()(
         });
       },
       addLorePoints: (amount: number) => {
-        set((state) => ({ lorePoints: state.lorePoints + amount }));
+        set((state: GameState) => ({ lorePoints: state.lorePoints + amount }));
       },
 
       unlockAchievement: (achievementId: string) => {
-        set((state) => ({
+        set((state: GameState) => ({
           achievements: state.achievements.map(achievement =>
             achievement.id === achievementId
               ? { ...achievement, earned: true, earnedAt: Date.now() }
@@ -366,7 +407,7 @@ export const useGameStore = create<GameState>()(
       },
 
       addExpeditionLogEntry: (entry: ExpeditionLogEntry) => {
-        set((state) => ({
+        set((state: GameState) => ({
           expeditionLog: [...state.expeditionLog, entry].slice(-100), // Keep last 100 entries
         }));
       },
@@ -379,8 +420,20 @@ export const useGameStore = create<GameState>()(
         set({ narrationSpeed: speed });
       },
 
+      setNarrationEnabled: (enabled: boolean) => {
+        set({ narrationEnabled: enabled });
+      },
+
+      setTheme: (theme: 'default' | 'light' | 'high-contrast') => {
+        set({ theme });
+      },
+
+      setLanguage: (language: 'en' | 'es' | 'fr') => {
+        set({ language });
+      },
+
       setKeyBinding: (key: string, actionIndex: number) => {
-        set((state) => ({
+        set((state: GameState) => ({
           keyBindings: { ...state.keyBindings, [key]: actionIndex },
         }));
       },
@@ -390,7 +443,7 @@ export const useGameStore = create<GameState>()(
       },
 
       resetExpedition: () => {
-        set((state) => ({
+        set((state: GameState) => ({
           isInExpedition: false,
           currentLocation: 'archive',
           currentScene: 'ashfall-archive',
@@ -420,7 +473,7 @@ export const useGameStore = create<GameState>()(
       },
 
       spendLantern: (amount: number) => {
-        set((state) => {
+        set((state: GameState) => {
           let multiplier = 1;
           if (state.activeChallenges.includes('double-lantern')) multiplier = 2;
           return {
@@ -430,72 +483,27 @@ export const useGameStore = create<GameState>()(
       },
 
       recoverLantern: (amount: number) => {
-        set((state) => ({
+        set((state: GameState) => ({
           lanternCharge: Math.min(state.maxLanternCharge, state.lanternCharge + amount),
         }));
       },
 
       discoverScene: (sceneId: string) => {
-        set((state) => ({
+        set((state: GameState) => ({
           discoveredScenes: new Set([...state.discoveredScenes, sceneId]),
         }));
       },
 
-      // New features
-      addLorePoints: (amount: number) => {
-        set((state) => ({ lorePoints: state.lorePoints + amount }));
+      markActionUsed: (sceneId: string, actionIndex: number) => {
+        set((state: GameState) => {
+          const newUsedActions = new Set(state.usedActions);
+          newUsedActions.add(`${sceneId}-${actionIndex}`);
+          return { usedActions: newUsedActions };
+        });
       },
 
-      unlockAchievement: (achievementId: string) => {
-        set((state) => ({
-          achievements: state.achievements.map(achievement =>
-            achievement.id === achievementId
-              ? { ...achievement, earned: true, earnedAt: Date.now() }
-              : achievement
-          ),
-        }));
-      },
-
-      addExpeditionLogEntry: (entry: ExpeditionLogEntry) => {
-        set((state) => ({
-          expeditionLog: [...state.expeditionLog, entry].slice(-100), // Keep last 100 entries
-        }));
-      },
-
-      setProfile: (profile: string) => {
-        set({ currentProfile: profile });
-      },
-
-      setNarrationSpeed: (speed: number) => {
-        set({ narrationSpeed: speed });
-      },
-
-      setKeyBinding: (key: string, actionIndex: number) => {
-        set((state) => ({
-          keyBindings: { ...state.keyBindings, [key]: actionIndex },
-        }));
-      },
-
-      setDifficulty: (difficulty: 'casual' | 'normal' | 'hardcore') => {
-        set({ difficulty });
-      },
-
-      resetExpedition: () => {
-        set((state) => ({
-          isInExpedition: false,
-          currentLocation: 'archive',
-          currentScene: 'ashfall-archive',
-          usedActions: new Set<string>(),
-          gameOver: false,
-          gameWon: false,
-          // Reset stats based on difficulty
-          vitality: state.difficulty === 'casual' ? 60 : state.difficulty === 'hardcore' ? 40 : 50,
-          maxVitality: state.difficulty === 'casual' ? 60 : state.difficulty === 'hardcore' ? 40 : 50,
-          focus: state.difficulty === 'casual' ? 35 : state.difficulty === 'hardcore' ? 25 : 30,
-          maxFocus: state.difficulty === 'casual' ? 35 : state.difficulty === 'hardcore' ? 25 : 30,
-          lanternCharge: state.difficulty === 'casual' ? 120 : state.difficulty === 'hardcore' ? 80 : 100,
-          maxLanternCharge: state.difficulty === 'casual' ? 120 : state.difficulty === 'hardcore' ? 80 : 100,
-        }));
+      clearUsedActions: () => {
+        set({ usedActions: new Set<string>() });
       },
     }),
     {

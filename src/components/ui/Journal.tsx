@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion';
 import { useState } from 'react';
-import type { Achievement, ExpeditionLogEntry } from '../store/gameStore';
-import SCENES from '../data/scenes.ts';
+import type { Achievement, ExpeditionLogEntry } from '../../store/gameStore';
+import { useGameStore } from '../../store/gameStore';
+import SCENES from '../../data/scenes';
 
 interface JournalProps {
   discoveredScenes: Set<string>;
@@ -18,7 +19,7 @@ export function Journal({
   lorePoints,
   onClose,
 }: JournalProps) {
-  const [activeTab, setActiveTab] = useState<'locations' | 'map' | 'crafting' | 'history'>('locations');
+  const [activeTab, setActiveTab] = useState<'locations' | 'map' | 'crafting' | 'history' | 'settings'>('locations');
   const [selectedScene, setSelectedScene] = useState<string | null>(null);
 
   const discoveredSceneList = Array.from(discoveredScenes)
@@ -260,8 +261,8 @@ export function Journal({
             <h3 className="text-lg font-bold text-amber-300 mb-4">Crafting Bench</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {useGameStore.getState().inventory
-                .filter(item => item.upgrade)
-                .map(item => (
+                .filter((item: any) => item.upgrade)
+                .map((item: any) => (
                   <div key={item.id} className="p-4 bg-obsidian-800/50 rounded border border-amber-900/30">
                     <h4 className="font-bold text-amber-400">{item.name}</h4>
                     <p className="text-sm text-amber-200 mb-2">{item.effect}</p>
@@ -281,7 +282,7 @@ export function Journal({
                   </div>
                 ))}
             </div>
-            {useGameStore.getState().inventory.filter(i => i.upgrade).length === 0 && (
+            {useGameStore.getState().inventory.filter((i: any) => i.upgrade).length === 0 && (
               <div className="text-center text-amber-200/60 py-8">
                 No upgradable relics found. Discover more in your expeditions!
               </div>
@@ -293,7 +294,7 @@ export function Journal({
           <div>
             <h3 className="text-lg font-bold text-amber-300 mb-4">Expedition History</h3>
             <div className="space-y-4">
-              {useGameStore.getState().runHistory.map((run, i) => (
+              {useGameStore.getState().runHistory.map((run: any, i: number) => (
                 <div key={i} className="p-4 bg-obsidian-800/50 rounded border border-amber-900/30">
                   <div className="flex justify-between items-center mb-2">
                     <div className={`font-bold ${run.success ? 'text-green-400' : 'text-red-400'}`}>

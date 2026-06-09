@@ -34,8 +34,15 @@ export function InventoryPanel({ items, maxSize }: InventoryPanelProps) {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
-              <div className={`text-sm font-bold rarity-${item.rarity}`}>
-                {item.name}
+              <div className="flex justify-between items-start">
+                <div className={`text-sm font-bold rarity-${item.rarity}`}>
+                  {item.name}
+                </div>
+                {item.attunement !== undefined && (
+                  <div className="text-[10px] text-amber-500/80">
+                    {'★'.repeat(item.attunement)}{'☆'.repeat(10 - item.attunement)}
+                  </div>
+                )}
               </div>
               <div className={`text-xs mt-1 ${
                 item.rarity === 'mythic' ? 'text-amber-400' :
@@ -56,8 +63,15 @@ export function InventoryPanel({ items, maxSize }: InventoryPanelProps) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
         >
-          <div className="text-sm text-amber-300 font-bold mb-2">
-            {selectedItem.name}
+          <div className="flex justify-between items-center mb-2">
+            <div className="text-sm text-amber-300 font-bold">
+              {selectedItem.name}
+            </div>
+            {selectedItem.attunement !== undefined && (
+              <div className="text-[10px] text-amber-500">
+                {selectedItem.attunement === 10 ? 'AWAKENED' : `ATTUNEMENT: ${selectedItem.attunement}/10`}
+              </div>
+            )}
           </div>
           <div className="text-xs text-amber-100/80 leading-relaxed">
             {selectedItem.description}

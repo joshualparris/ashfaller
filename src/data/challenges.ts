@@ -51,7 +51,9 @@ export const CHALLENGES: Challenge[] = [
 
 export function getActiveChallenges(): Challenge[] {
   const now = new Date();
-  const dayOfYear = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
+  const startOfYear = new Date(now.getFullYear(), 0, 0);
+  const diff = now.getTime() - startOfYear.getTime();
+  const dayOfYear = Math.floor(diff / 86400000);
   const weekOfYear = Math.floor(dayOfYear / 7);
 
   const dailyIndex = dayOfYear % CHALLENGES.filter(c => c.type === 'daily').length;

@@ -10,14 +10,28 @@ import { AchievementToast } from './components/ui/AchievementToast';
 import { ProfileSelector } from './components/ui/ProfileSelector';
 import SCENES from './data/scenes';
 import { getActiveChallenges } from './data/challenges';
-import type { Scene, SceneAction } from './data/scenes';
+import type { SceneAction } from './data/scenes';
 import { createItem } from './data/items';
 
 function App() {
   const store = useGameStore();
-  const [currentScene, setCurrentScene] = useState<Scene | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showJournal, setShowJournal] = useState(false);
+  const [showProfileSelector, setShowProfileSelector] = useState(false);
+  const [achievementToast, setAchievementToast] = useState<{ title: string; description: string } | null>(null);
   const initRef = useRef(false);
+
+  const currentScene = SCENES[store.currentScene];
+
+  const playAmbient = (location: string) => {
+    // Ambient audio placeholder
+    console.log(`Playing ambient for: ${location}`);
+  };
+
+  const difficultyMod = {
+    drain: store.difficulty === 'hardcore' ? 1.5 : store.difficulty === 'casual' ? 0.75 : 1.0,
+    damage: store.difficulty === 'hardcore' ? 1.3 : store.difficulty === 'casual' ? 0.8 : 1.0,
+  };
 
   const speak = (text: string) => {
     if (store.narrationEnabled && 'speechSynthesis' in window) {
@@ -55,7 +69,7 @@ function App() {
       const state = useGameStore.getState();
 
       // First expedition
-      if (state.gameWon && !state.achievements.find(a => a.id === 'first-expedition')?.earned) {
+      if (state.gameWon && !state.achievements.find((a: any) => a.id === 'first-expedition')?.earned) {
         state.unlockAchievement('first-expedition');
         setAchievementToast({
           title: 'First Steps',
@@ -64,8 +78,8 @@ function App() {
       }
 
       // Rare collector
-      const rareItems = state.inventory.filter(item => item.rarity === 'rare').length;
-      if (rareItems >= 3 && !state.achievements.find(a => a.id === 'rare-collector')?.earned) {
+      const rareItems = state.inventory.filter((item: any) => item.rarity === 'rare').length;
+      if (rareItems >= 3 && !state.achievements.find((a: any) => a.id === 'rare-collector')?.earned) {
         state.unlockAchievement('rare-collector');
         setAchievementToast({
           title: 'Relic Hunter',
@@ -74,7 +88,7 @@ function App() {
       }
 
       // Lantern master
-      if (state.gameWon && state.lanternCharge >= 50 && !state.achievements.find(a => a.id === 'lantern-master')?.earned) {
+      if (state.gameWon && state.lanternCharge >= 50 && !state.achievements.find((a: any) => a.id === 'lantern-master')?.earned) {
         state.unlockAchievement('lantern-master');
         setAchievementToast({
           title: 'Light Keeper',
@@ -83,7 +97,7 @@ function App() {
       }
 
       // Knowledge seeker
-      if (state.lorePoints >= 100 && !state.achievements.find(a => a.id === 'knowledge-seeker')?.earned) {
+      if (state.lorePoints >= 100 && !state.achievements.find((a: any) => a.id === 'knowledge-seeker')?.earned) {
         state.unlockAchievement('knowledge-seeker');
         setAchievementToast({
           title: 'Knowledge Seeker',
@@ -98,12 +112,12 @@ function App() {
   }, [store.gameWon, store.inventory, store.lorePoints]);
 
   // Derived item effects
-  const hasLocator = store.inventory.some((i) => i.id.startsWith('brass-locator'));
-  const hasNameScroll = store.inventory.some((i) => i.id.startsWith('name-scroll'));
-  const hasAshwater = store.inventory.some((i) => i.id.startsWith('ashwater-flask'));
-  const hasAncientGarb = store.inventory.some((i) => i.id.startsWith('ancient-garb'));
-  const hasVeilSalt = store.inventory.some((i) => i.id.startsWith('veil-salt'));
-  const hasObeliskFragment = store.inventory.some((i) => i.id.startsWith('obelisk-fragment'));
+  const hasLocator = store.inventory.some((i: any) => i.id.startsWith('brass-locator'));
+  const hasNameScroll = store.inventory.some((i: any) => i.id.startsWith('name-scroll'));
+  const hasAshwater = store.inventory.some((i: any) => i.id.startsWith('ashwater-flask'));
+  const hasAncientGarb = store.inventory.some((i: any) => i.id.startsWith('ancient-garb'));
+  const hasVeilSalt = store.inventory.some((i: any) => i.id.startsWith('veil-salt'));
+  const hasObeliskFragment = store.inventory.some((i: any) => i.id.startsWith('obelisk-fragment'));
 
   const applyLanternCost = (raw: number) => {
     // Locator reduces lantern burn by 20%
@@ -211,6 +225,38 @@ function App() {
       for (const itemKey of action.items) s.addItem(createItem(itemKey));
     }
 
+    // Weighted Loot Picker (Stage 2)
+    if (currentSceneData?.lootPool) {
+      const roll = Math.random();
+      let rarity: 'common' | 'uncommon' | 'rare' | 'mythic' = 'common';
+
+      // Depth scaling: deeper scenes (higher lantern cost) have better rarity weights
+      const depth = currentSceneData.lanternCostPerAction || 0;
+      const mythicChance = 0.01 + depth / 1000;
+      const rareChance = 0.05 + depth / 200;
+      const uncommonChance = 0.2 + depth / 50;
+
+      if (roll < mythicChance && currentSceneData.lootPool.mythic.length > 0) rarity = 'mythic';
+      else if (roll < rareChance && currentSceneData.lootPool.rare.length > 0) rarity = 'rare';
+      else if (roll < uncommonChance && currentSceneData.lootPool.uncommon.length > 0) rarity = 'uncommon';
+      else if (currentSceneData.lootPool.common.length > 0) rarity = 'common';
+
+      const pool = currentSceneData.lootPool[rarity];
+      if (pool && pool.length > 0 && Math.random() < 0.25) {
+        // 25% chance to find additional loot from the pool
+        const itemKey = pool[Math.floor(Math.random() * pool.length)];
+        s.addItem(createItem(itemKey));
+      }
+    }
+
+    // Attunement: Using items increases their connection (Stage 2)
+    if (store.inventory.length > 0) {
+      // Pick a random item in inventory to attune slightly
+      const randomIdx = Math.floor(Math.random() * store.inventory.length);
+      const itemToAttune = store.inventory[randomIdx];
+      s.attuneItem(itemToAttune.id);
+    }
+
     // Re-read state after mutations
     const after = useGameStore.getState();
 
@@ -277,7 +323,7 @@ function App() {
           relicsFound: store.inventory.length,
           xpGained: store.xp,
           lorePointsEarned: 10,
-          timeSpent: Date.now() - (store as any).startTime || 0,
+          timeSpent: Date.now() - ((store as any).startTime || 0),
           challenges: store.activeChallenges,
         };
         s.addRunHistory(run);
