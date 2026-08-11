@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import type { SceneAction } from '../data/scenes';
 import { useGameStore } from '../store/gameStore';
 
@@ -22,8 +22,9 @@ export function ActionButtons({
   const keyBindings = useGameStore((state) => state.keyBindings);
 
   // Defensive: handle case where persist may have stored as plain object
-  const usedActionsSet =
-    usedActions instanceof Set ? usedActions : new Set<string>();
+  const usedActionsSet = useMemo(() =>
+    usedActions instanceof Set ? usedActions : new Set<string>(),
+  [usedActions]);
 
   // Keyboard handling
   useEffect(() => {
